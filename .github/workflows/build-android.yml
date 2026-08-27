@@ -13,28 +13,26 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'yarn'
 
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
 
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      # 🔑 1. DECODE THE KEYSTORE FIRST
-      - name: Create Keystore File from Base64
-        run: |
-          mkdir -p src-capacitor/android/app
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src-capacitor/android/app/release-key.jks
+      - name: Build Quasar Capacitor Android
+        run: npx @quasar/cli build -m capacitor -T android
 
-      # 🚀 2. SYNC AND COMPILE WEB ASSETS VIA QUASAR
-      - name: Build Quasar Project
-        run: npx @quasar/cli build -m capacitor -T android --skip-pkg
+      - name: Sync Capacitor
+        run: npx cap sync android --project src-capacitor
 
-      # 📦 3. COMPILE AND SIGN THE FINISHED APK VIA GRADLE
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > src-capacitor/android/app/release-key.jks
+
       - name: Build signed APK
         working-directory: src-capacitor/android
         env:
@@ -44,11 +42,15 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease
 
-      # 📤 4. UPLOAD EXECUTABLE ARTIFACT
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$KEYSTORE_PATH \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
-          path: src-capacitor/android/app/build/outputs/apk/release/*.apk
+          path: src-capacitor/android/app/build/outputs/apk/release/app-release.apk
