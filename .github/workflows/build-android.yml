@@ -30,8 +30,8 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android --project src-capacitor
 
-      - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > src-capacitor/android/app/release-key.jks
+      - name: Create Keystore File from Base64
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src-capacitor/android/app/release-key.jks
 
       - name: Build signed APK
         working-directory: src-capacitor/android
