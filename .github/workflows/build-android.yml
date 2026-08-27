@@ -24,15 +24,17 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
-      - name: Build Quasar Capacitor Android
-        run: npx @quasar/cli build -m capacitor -T android
-
-      - name: Sync Capacitor
-        run: npx cap sync android --project src-capacitor
-
+      # 🔑 1. DECODE THE KEYSTORE FIRST
       - name: Create Keystore File from Base64
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src-capacitor/android/app/release-key.jks
+        run: |
+          mkdir -p src-capacitor/android/app
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src-capacitor/android/app/release-key.jks
 
+      # 🚀 2. SYNC AND COMPILE WEB ASSETS VIA QUASAR
+      - name: Build Quasar Project
+        run: npx @quasar/cli build -m capacitor -T android --skip-pkg
+
+      # 📦 3. COMPILE AND SIGN THE FINISHED APK VIA GRADLE
       - name: Build signed APK
         working-directory: src-capacitor/android
         env:
@@ -42,6 +44,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
+      # 📤 4. UPLOAD EXECUTABLE ARTIFACT
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
